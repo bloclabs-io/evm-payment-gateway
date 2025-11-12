@@ -7,13 +7,17 @@ A secure WordPress plugin enabling EVM-compatible token payments through WooComm
 - Support for any EVM-compatible blockchain (Private/Public Besu, Public Ethereum, BSC, Polygon, etc.)
 - MetaMask integration for secure transactions
 - Configurable token contract settings
+- **Customizable token name and symbol display**
 - Transaction verification and order status management
+- Enhanced security with proper nonce verification
+- Improved logging with WooCommerce logger
+- HPOS (High-Performance Order Storage) compatibility
 - Detailed payment logging and error handling
 
 ## Requirements
 
-- WordPress 5.8 or higher
-- WooCommerce 5.0 or higher
+- WordPress 6.0 or higher
+- WooCommerce 7.0 or higher (tested up to 9.6)
 - PHP 7.4 or higher
 - MetaMask browser extension
 
@@ -30,8 +34,10 @@ A secure WordPress plugin enabling EVM-compatible token payments through WooComm
 2. Set your wallet address (recipient address)
 3. Configure token contract details:
    - Contract address
-   - ABI
    - Token decimals
+   - **Token name** (e.g., "Ethereum", "USD Coin")
+   - **Token symbol** (e.g., "ETH", "USDC")
+   - ABI (JSON format)
 4. Set blockchain network ID
 5. Save changes
 

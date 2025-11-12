@@ -5,17 +5,21 @@ jQuery(document).ready(function($) {
       try {
         // Check if MetaMask is installed
         if (typeof window.ethereum === 'undefined') {
-          alert('MetaMask is not installed\! Please install MetaMask to make payments.');
+          alert('MetaMask is not installed! Please install MetaMask to make payments.');
           return;
         }
-        
+
+        // Get token information
+        const tokenName = evmPaymentData.tokenName || 'Token';
+        const tokenSymbol = evmPaymentData.tokenSymbol || 'TKN';
+
         // Request account access
         const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
         const account = accounts[0];
-        
+
         // Show processing state
         payButton.disabled = true;
-        payButton.innerHTML = 'Processing...';
+        payButton.innerHTML = 'Processing ' + tokenSymbol + ' payment...';
         
         // Get payment amount
         const amount = evmPaymentConfig.amount;
@@ -54,7 +58,7 @@ jQuery(document).ready(function($) {
         }
         
         // Show success popup instead of redirecting
-        showSuccessPopup(result.transactionHash);
+        showSuccessPopup(result.transactionHash, tokenSymbol);
         
       } catch (error) {
         // Reset button state
@@ -74,7 +78,8 @@ jQuery(document).ready(function($) {
   }
   
   // Create and show a centered popup with payment success details
-  function showSuccessPopup(txHash) {
+  function showSuccessPopup(txHash, tokenSymbol) {
+    tokenSymbol = tokenSymbol || 'TKN';
     // Create modal container
     const modal = document.createElement('div');
     modal.style.position = 'fixed';
@@ -109,15 +114,15 @@ jQuery(document).ready(function($) {
     
     // Add title
     const title = document.createElement('h2');
-    title.innerHTML = 'Payment Successful\!';
+    title.innerHTML = 'Payment Successful!';
     title.style.fontSize = '24px';
     title.style.marginBottom = '20px';
     title.style.color = '#4CAF50';
     modalContent.appendChild(title);
-    
+
     // Add message
     const message = document.createElement('p');
-    message.innerHTML = 'Your payment has been confirmed on the blockchain.';
+    message.innerHTML = 'Your ' + tokenSymbol + ' payment has been confirmed on the blockchain.';
     message.style.marginBottom = '15px';
     modalContent.appendChild(message);
     
@@ -188,7 +193,7 @@ jQuery(document).ready(function($) {
     // Also update the message area
     const errorDiv = document.getElementById('evm-payment-error');
     if (errorDiv) {
-      errorDiv.textContent = 'Payment confirmed\! Transaction ID: ' + txHash;
+      errorDiv.textContent = tokenSymbol + ' payment confirmed! Transaction ID: ' + txHash;
       errorDiv.style.display = 'block';
       errorDiv.className = 'woocommerce-message';
     }

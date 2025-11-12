@@ -15,6 +15,27 @@
     font-weight: 600;
 }
 
+/* Payment info styles */
+.evm-payment-info {
+    background: #f8f9fa;
+    border-left: 4px solid #7057ff;
+    padding: 15px 20px;
+    margin: 15px 0 20px 0;
+    border-radius: 4px;
+}
+
+.evm-payment-info p {
+    margin: 8px 0;
+    color: #555;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.evm-payment-info strong {
+    color: #333;
+    font-weight: 600;
+}
+
 /* Payment button styles */
 .evm-payment-wrapper .button.alt {
     background-color: #7057ff;
