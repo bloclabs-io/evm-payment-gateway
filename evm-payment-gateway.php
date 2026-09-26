@@ -116,7 +116,11 @@ function evp_bootstrap() {
 	);
 
 	// AJAX endpoints. Guests are allowed; every request is authorised by nonce + order key.
-	foreach ( array( 'evp_prepare_payment' => 'ajax_prepare_payment', 'evp_submit_transaction' => 'ajax_submit_transaction' ) as $action => $method ) {
+	$ajax_actions = array(
+		'evp_prepare_payment'    => 'ajax_prepare_payment',
+		'evp_submit_transaction' => 'ajax_submit_transaction',
+	);
+	foreach ( $ajax_actions as $action => $method ) {
 		$handler = function () use ( $method ) {
 			$gateway = evp_get_gateway();
 			if ( ! $gateway ) {

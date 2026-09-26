@@ -13,7 +13,10 @@
 	<config name="testVersion" value="7.4-"/>
 	<config name="minimum_wp_version" value="6.5"/>
 
-	<rule ref="PHPCompatibilityWP"/>
+	<rule ref="PHPCompatibilityWP">
+		<!-- Flags '0x…' strings; ours are hex strings from JSON-RPC, never used as numbers. -->
+		<exclude name="PHPCompatibility.Miscellaneous.ValidIntegers.HexNumericStringFound"/>
+	</rule>
 
 	<rule ref="WordPress">
 		<!-- PSR-4 class files (includes/Gateway/Payment_Gateway.php) instead of class-*.php. -->
@@ -23,6 +26,9 @@
 		<exclude name="Squiz.Commenting.ClassComment.Missing"/>
 		<exclude name="Generic.Commenting.DocComment.MissingShort"/>
 		<exclude name="Squiz.Commenting.VariableComment.Missing"/>
+		<!-- The plugin's established evp_/EVP prefix is shorter than this sniff accepts;
+		     renaming the public constants, hooks and namespace would break integrations. -->
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals"/>
 	</rule>
 
 	<rule ref="WordPress.WP.I18n">
@@ -33,13 +39,4 @@
 		</properties>
 	</rule>
 
-	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
-		<properties>
-			<property name="prefixes" type="array">
-				<element value="evp"/>
-				<element value="EVP"/>
-				<element value="evm_payment"/>
-			</property>
-		</properties>
-	</rule>
 </ruleset>

@@ -170,18 +170,18 @@ class Transaction_Verifier {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			throw new \RuntimeException( $response->get_error_message() );
+			throw new \RuntimeException( esc_html( $response->get_error_message() ) );
 		}
 
 		$code = wp_remote_retrieve_response_code( $response );
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		if ( 200 !== $code || ! is_array( $body ) ) {
-			throw new \RuntimeException( sprintf( '%s returned HTTP %d.', $method, $code ) );
+			throw new \RuntimeException( esc_html( sprintf( '%s returned HTTP %d.', $method, $code ) ) );
 		}
 		if ( isset( $body['error'] ) ) {
 			$message = isset( $body['error']['message'] ) ? $body['error']['message'] : 'unknown error';
-			throw new \RuntimeException( $method . ': ' . $message );
+			throw new \RuntimeException( esc_html( $method . ': ' . $message ) );
 		}
 
 		return isset( $body['result'] ) ? $body['result'] : null;

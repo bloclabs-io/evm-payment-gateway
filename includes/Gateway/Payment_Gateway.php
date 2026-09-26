@@ -172,10 +172,13 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 		);
 	}
 
-	/*
-	 * Settings validation. Invalid values are rejected and the previous value is kept.
+	/**
+	 * Settings validation: invalid values are rejected and the previous value is kept.
+	 *
+	 * @param string $key   Field key.
+	 * @param string $value Submitted value.
+	 * @return string
 	 */
-
 	public function validate_target_address_field( $key, $value ) {
 		return $this->validate_address( $key, $value, __( 'Recipient Address', 'evm-payment-gateway' ) );
 	}
@@ -278,10 +281,12 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 		wc_get_logger()->log( $level, $message, array( 'source' => 'evm-payment-gateway' ) );
 	}
 
-	/*
-	 * Checkout.
+	/**
+	 * Marks the order as awaiting payment and sends the customer to the order-pay page.
+	 *
+	 * @param int $order_id Order ID.
+	 * @return array
 	 */
-
 	public function process_payment( $order_id ) {
 		$order = wc_get_order( $order_id );
 
@@ -432,10 +437,6 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 		echo '</p>';
 	}
 
-	/*
-	 * AJAX.
-	 */
-
 	/**
 	 * Binds the customer's wallet address to the order before the transfer is sent,
 	 * so a transaction observed in the mempool can't be claimed for another order.
@@ -529,10 +530,6 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 		return $order;
 	}
 
-	/*
-	 * Verification.
-	 */
-
 	/**
 	 * Action Scheduler callback: re-checks an order's pending transaction.
 	 *
@@ -588,7 +585,7 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 				$order->set_transaction_id( '' );
 				$order->add_order_note(
 					/* translators: 1: transaction hash, 2: reason */
-					sprintf( __( 'Transaction %1$s rejected: %2$s', 'evm-payment-gateway' ), $this->format_transaction( $tx ), $result['message'] )
+					sprintf( __( 'Transaction %1$s rejected: %2$s', 'evm-payment-gateway' ), $this->format_transaction( $tx ), esc_html( $result['message'] ) )
 				);
 				$order->save();
 				$this->log( sprintf( 'Order %d: transaction %s rejected: %s', $order->get_id(), $tx, $result['message'] ), 'warning' );

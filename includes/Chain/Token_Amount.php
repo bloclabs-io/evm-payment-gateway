@@ -31,7 +31,7 @@ class Token_Amount {
 	public static function to_base_units( $amount, $decimals ) {
 		$amount = trim( (string) $amount );
 		if ( ! preg_match( '/^(\d*)(?:\.(\d*))?$/', $amount, $m ) || '' === $m[1] . ( isset( $m[2] ) ? $m[2] : '' ) ) {
-			throw new \InvalidArgumentException( 'Invalid amount: ' . $amount );
+			throw new \InvalidArgumentException( 'Invalid amount: ' . esc_html( $amount ) );
 		}
 
 		$whole    = '' === $m[1] ? '0' : $m[1];
