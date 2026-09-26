@@ -1,22 +1,22 @@
 {
-    "name": "stcchain/evm-payment-gateway",
+    "name": "bloclabs-io/evm-payment-gateway",
     "description": "EVM-compatible token payment gateway for WooCommerce",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "require": {
         "php": ">=7.4",
-        "composer/installers": "~1.0"
+        "composer/installers": "^2.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^9.0",
-        "wp-coding-standards/wpcs": "^2.3",
-        "dealerdirect/phpcodesniffer-composer-installer": "^0.7.0",
+        "phpunit/phpunit": "^9.6",
+        "wp-coding-standards/wpcs": "^3.1",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
         "phpcompatibility/phpcompatibility-wp": "^2.1"
     },
     "scripts": {
         "test": "phpunit",
-        "phpcs": "phpcs --standard=WordPress",
-        "phpcbf": "phpcbf --standard=WordPress"
+        "phpcs": "phpcs",
+        "phpcbf": "phpcbf"
     },
     "config": {
         "allow-plugins": {

@@ -1,6 +1,9 @@
-# Ignore logs directory content except .gitkeep
-logs/*
-!logs/.gitkeep
+# Composer
+/vendor/
+composer.lock
+
+# Tooling caches
+.phpunit.result.cache
 
 # Backup files
 *.bak

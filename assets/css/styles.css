@@ -37,25 +37,33 @@
     cursor: not-allowed;
 }
 
-/* Error message styles */
-#evm-payment-error {
+/* Status / error notice */
+#evm-payment-notice:empty {
     display: none;
+}
+
+#evm-payment-notice {
     margin: 10px 0;
     padding: 10px 15px;
     border-radius: 4px;
     font-size: 14px;
 }
 
-#evm-payment-error.woocommerce-error {
+#evm-payment-notice.woocommerce-error {
     background-color: #f8d7da;
     border: 1px solid #f5c6cb;
     color: #721c24;
 }
 
-#evm-payment-error.woocommerce-message {
+#evm-payment-notice.woocommerce-info {
     background-color: #d4edda;
     border: 1px solid #c3e6cb;
     color: #155724;
+}
+
+/* Wallet picker (shown when several EIP-6963 wallets are installed) */
+#evm-wallet-picker label {
+    margin-right: 8px;
 }
 
 /* Loading indicator */
