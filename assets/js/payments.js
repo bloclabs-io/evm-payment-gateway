@@ -1,196 +1,238 @@
-jQuery(document).ready(function($) {
-  const payButton = document.getElementById('evm-payment-button');
-  if (payButton) {
-    payButton.addEventListener('click', async function() {
-      try {
-        // Check if MetaMask is installed
-        if (typeof window.ethereum === 'undefined') {
-          alert('MetaMask is not installed\! Please install MetaMask to make payments.');
-          return;
-        }
-        
-        // Request account access
-        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-        const account = accounts[0];
-        
-        // Show processing state
-        payButton.disabled = true;
-        payButton.innerHTML = 'Processing...';
-        
-        // Get payment amount
-        const amount = evmPaymentConfig.amount;
-        
-        // Load Web3
-        const web3 = new Web3(window.ethereum);
-        
-        // Get contract details
-        const contractAddress = evmPaymentData.contractAddress;
-        const targetAddress = evmPaymentData.targetAddress;
-        const decimals = parseInt(evmPaymentData.tokenDecimals);
-        
-        // Calculate token amount (with proper decimals)
-        const factor = new web3.utils.BN(10).pow(new web3.utils.BN(decimals));
-        const value = new web3.utils.BN(Math.round(amount * 100)).mul(factor).div(new web3.utils.BN(100));
-        
-        // Create contract instance
-        const contract = new web3.eth.Contract(evmPaymentData.abiArray, contractAddress);
-        
-        // Execute the transfer
-        const result = await contract.methods.transfer(targetAddress, value.toString()).send({ from: account });
-        
-        // Notify server of payment (continue even if this fails)
-        try {
-          $.post(
-            evmPaymentData.ajaxUrl,
-            {
-              action: 'verify_payment',
-              nonce: evmPaymentData.nonce,
-              order_id: evmPaymentConfig.orderId,
-              tx: result.transactionHash
-            }
-          );
-        } catch (ajaxError) {
-          console.error('Server notification error:', ajaxError);
-        }
-        
-        // Show success popup instead of redirecting
-        showSuccessPopup(result.transactionHash);
-        
-      } catch (error) {
-        // Reset button state
-        payButton.disabled = false;
-        payButton.innerHTML = 'Pay with MetaMask';
-        
-        // Show error
-        const errorMessage = error.code === 4001 ? 'Transaction was rejected by user' : error.message;
-        const errorDiv = document.getElementById('evm-payment-error');
-        errorDiv.textContent = errorMessage;
-        errorDiv.style.display = 'block';
-        errorDiv.className = 'woocommerce-error';
-        
-        console.error('Payment error:', error);
-      }
-    });
-  }
-  
-  // Create and show a centered popup with payment success details
-  function showSuccessPopup(txHash) {
-    // Create modal container
-    const modal = document.createElement('div');
-    modal.style.position = 'fixed';
-    modal.style.left = '0';
-    modal.style.top = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
-    modal.style.zIndex = '9999';
-    modal.style.display = 'flex';
-    modal.style.alignItems = 'center';
-    modal.style.justifyContent = 'center';
-    
-    // Create modal content
-    const modalContent = document.createElement('div');
-    modalContent.style.backgroundColor = '#ffffff';
-    modalContent.style.borderRadius = '8px';
-    modalContent.style.padding = '30px';
-    modalContent.style.width = '80%';
-    modalContent.style.maxWidth = '500px';
-    modalContent.style.maxHeight = '80%';
-    modalContent.style.overflowY = 'auto';
-    modalContent.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-    modalContent.style.textAlign = 'center';
-    
-    // Add success icon
-    const icon = document.createElement('div');
-    icon.innerHTML = '✅';
-    icon.style.fontSize = '48px';
-    icon.style.marginBottom = '20px';
-    modalContent.appendChild(icon);
-    
-    // Add title
-    const title = document.createElement('h2');
-    title.innerHTML = 'Payment Successful\!';
-    title.style.fontSize = '24px';
-    title.style.marginBottom = '20px';
-    title.style.color = '#4CAF50';
-    modalContent.appendChild(title);
-    
-    // Add message
-    const message = document.createElement('p');
-    message.innerHTML = 'Your payment has been confirmed on the blockchain.';
-    message.style.marginBottom = '15px';
-    modalContent.appendChild(message);
-    
-    // Add transaction ID
-    const txIdContainer = document.createElement('div');
-    txIdContainer.style.padding = '10px';
-    txIdContainer.style.backgroundColor = '#f5f5f5';
-    txIdContainer.style.borderRadius = '4px';
-    txIdContainer.style.marginBottom = '25px';
-    txIdContainer.style.wordBreak = 'break-all';
-    txIdContainer.style.fontSize = '14px';
-    
-    const txIdLabel = document.createElement('div');
-    txIdLabel.innerHTML = 'Transaction ID:';
-    txIdLabel.style.fontWeight = 'bold';
-    txIdLabel.style.marginBottom = '5px';
-    txIdContainer.appendChild(txIdLabel);
-    
-    const txIdValue = document.createElement('div');
-    txIdValue.innerHTML = txHash;
-    txIdContainer.appendChild(txIdValue);
-    modalContent.appendChild(txIdContainer);
-    
-    // Add close button
-    const closeButton = document.createElement('button');
-    closeButton.innerHTML = 'Close';
-    closeButton.style.padding = '10px 25px';
-    closeButton.style.backgroundColor = '#4CAF50';
-    closeButton.style.color = 'white';
-    closeButton.style.border = 'none';
-    closeButton.style.borderRadius = '4px';
-    closeButton.style.cursor = 'pointer';
-    closeButton.style.fontSize = '16px';
-    closeButton.style.fontWeight = 'bold';
-    closeButton.style.marginRight = '10px';
-    closeButton.addEventListener('click', function() {
-      document.body.removeChild(modal);
-    });
-    modalContent.appendChild(closeButton);
-    
-    // Add "View Order Details" button
-    const viewOrderButton = document.createElement('button');
-    viewOrderButton.innerHTML = 'View Order Details';
-    viewOrderButton.style.padding = '10px 25px';
-    viewOrderButton.style.backgroundColor = '#2196F3';
-    viewOrderButton.style.color = 'white';
-    viewOrderButton.style.border = 'none';
-    viewOrderButton.style.borderRadius = '4px';
-    viewOrderButton.style.cursor = 'pointer';
-    viewOrderButton.style.fontSize = '16px';
-    viewOrderButton.style.fontWeight = 'bold';
-    viewOrderButton.addEventListener('click', function() {
-      window.location.href = '/index.php/checkout/order-received/' + evmPaymentConfig.orderId + '/';
-    });
-    modalContent.appendChild(viewOrderButton);
-    
-    // Add modal to page
-    modal.appendChild(modalContent);
-    document.body.appendChild(modal);
-    
-    // Reset button state
-    const payButton = document.getElementById('evm-payment-button');
-    if (payButton) {
-      payButton.disabled = false;
-      payButton.innerHTML = 'Payment Complete';
-    }
-    
-    // Also update the message area
-    const errorDiv = document.getElementById('evm-payment-error');
-    if (errorDiv) {
-      errorDiv.textContent = 'Payment confirmed\! Transaction ID: ' + txHash;
-      errorDiv.style.display = 'block';
-      errorDiv.className = 'woocommerce-message';
-    }
-  }
-});
+/**
+ * EVM token payment on the WooCommerce order-pay page.
+ *
+ * Talks to the wallet directly over EIP-1193 (discovered via EIP-6963), so no
+ * web3 library is needed. The server verifies the transfer on-chain; this
+ * script only sends it and reports the transaction hash.
+ */
+( function () {
+	'use strict';
+
+	const cfg = window.evpPayment;
+	const button = document.getElementById( 'evm-payment-button' );
+	const notice = document.getElementById( 'evm-payment-notice' );
+	const picker = document.getElementById( 'evm-wallet-picker' );
+	const select = document.getElementById( 'evm-wallet-select' );
+
+	if ( ! cfg || ! button ) {
+		return;
+	}
+
+	const t = cfg.i18n;
+	const TRANSFER_SELECTOR = '0xa9059cbb'; // transfer(address,uint256)
+	const POLL_INTERVAL = 10000;
+	const MAX_POLLS = 30;
+
+	// --- Wallet discovery (EIP-6963, with window.ethereum fallback) --------
+
+	const providers = [];
+
+	window.addEventListener( 'eip6963:announceProvider', ( event ) => {
+		const detail = event.detail;
+		if ( ! detail || ! detail.info || providers.some( ( p ) => p.info.uuid === detail.info.uuid ) ) {
+			return;
+		}
+		providers.push( detail );
+		renderPicker();
+	} );
+	window.dispatchEvent( new Event( 'eip6963:requestProvider' ) );
+
+	function renderPicker() {
+		if ( ! picker || ! select || providers.length < 2 ) {
+			return;
+		}
+		const current = select.value;
+		select.replaceChildren(
+			...providers.map( ( p ) => {
+				const option = document.createElement( 'option' );
+				option.value = p.info.uuid;
+				option.textContent = p.info.name;
+				return option;
+			} )
+		);
+		if ( current ) {
+			select.value = current;
+		}
+		picker.hidden = false;
+	}
+
+	function getProvider() {
+		if ( providers.length ) {
+			const chosen = select && providers.find( ( p ) => p.info.uuid === select.value );
+			return ( chosen || providers[ 0 ] ).provider;
+		}
+		return window.ethereum || null;
+	}
+
+	// --- Helpers -------------------------------------------------------------
+
+	function showNotice( message, type ) {
+		notice.textContent = message;
+		notice.className = type === 'error' ? 'woocommerce-error' : 'woocommerce-info';
+	}
+
+	function setBusy( busy, label ) {
+		button.disabled = busy;
+		button.textContent = label || ( busy ? t.processing : t.payButton );
+	}
+
+	function pad32( hex ) {
+		return hex.replace( /^0x/, '' ).toLowerCase().padStart( 64, '0' );
+	}
+
+	function sleep( ms ) {
+		return new Promise( ( resolve ) => setTimeout( resolve, ms ) );
+	}
+
+	async function post( action, data ) {
+		const body = new FormData();
+		body.append( 'action', action );
+		body.append( 'nonce', cfg.nonce );
+		body.append( 'order_id', cfg.orderId );
+		body.append( 'order_key', cfg.orderKey );
+		Object.keys( data || {} ).forEach( ( key ) => body.append( key, data[ key ] ) );
+
+		const response = await fetch( cfg.ajaxUrl, { method: 'POST', body, credentials: 'same-origin' } );
+		let json = null;
+		try {
+			json = await response.json();
+		} catch ( e ) {
+			// Fall through to the generic error below.
+		}
+		if ( ! json || ! json.success ) {
+			throw new Error( ( json && json.data && json.data.message ) || t.genericError );
+		}
+		return json.data || {};
+	}
+
+	async function ensureChain( provider ) {
+		const current = await provider.request( { method: 'eth_chainId' } );
+		if ( String( current ).toLowerCase() === cfg.chainId.toLowerCase() ) {
+			return;
+		}
+		try {
+			await provider.request( { method: 'wallet_switchEthereumChain', params: [ { chainId: cfg.chainId } ] } );
+		} catch ( error ) {
+			if ( error && error.code === 4902 ) {
+				throw new Error( t.addNetwork );
+			}
+			throw error;
+		}
+	}
+
+	// --- Payment flow ------------------------------------------------------
+
+	async function pay() {
+		const provider = getProvider();
+		if ( ! provider ) {
+			showNotice( t.noWallet, 'error' );
+			return;
+		}
+
+		setBusy( true );
+		try {
+			const accounts = await provider.request( { method: 'eth_requestAccounts' } );
+			const from = accounts && accounts[ 0 ];
+			if ( ! from ) {
+				throw new Error( t.genericError );
+			}
+
+			await ensureChain( provider );
+
+			// Bind the wallet to the order before sending, so the transfer can only be claimed by this order.
+			await post( 'evp_prepare_payment', { wallet: from } );
+
+			showNotice( t.confirmWallet );
+			const txHash = await provider.request( {
+				method: 'eth_sendTransaction',
+				params: [
+					{
+						from,
+						to: cfg.token,
+						value: '0x0',
+						data: TRANSFER_SELECTOR + pad32( cfg.recipient ) + pad32( cfg.amountHex ),
+					},
+				],
+			} );
+
+			showNotice( t.waiting );
+			await waitForConfirmation( txHash );
+		} catch ( error ) {
+			setBusy( false );
+			const message = error && error.code === 4001 ? t.rejected : ( error && error.message ) || t.genericError;
+			showNotice( message, 'error' );
+			// eslint-disable-next-line no-console
+			console.error( 'EVM payment error:', error );
+		}
+	}
+
+	async function waitForConfirmation( txHash ) {
+		for ( let i = 0; i < MAX_POLLS; i++ ) {
+			const result = await post( 'evp_submit_transaction', { tx: txHash } );
+			if ( result.status === 'confirmed' ) {
+				setBusy( true, t.paidButton );
+				notice.textContent = '';
+				showSuccessModal( txHash, result.redirect || cfg.receivedUrl );
+				return;
+			}
+			await sleep( POLL_INTERVAL );
+		}
+
+		// Still pending: the server keeps checking in the background.
+		setBusy( true, t.processing );
+		showNotice( t.stillWaiting );
+		const link = document.createElement( 'a' );
+		link.href = cfg.receivedUrl;
+		link.textContent = ' ' + t.viewOrder;
+		notice.appendChild( link );
+	}
+
+	function showSuccessModal( txHash, redirectUrl ) {
+		const el = ( tag, className, text ) => {
+			const node = document.createElement( tag );
+			if ( className ) {
+				node.className = className;
+			}
+			if ( text ) {
+				node.textContent = text;
+			}
+			return node;
+		};
+
+		const modal = el( 'div', 'evm-payment-modal' );
+		modal.setAttribute( 'role', 'dialog' );
+		modal.setAttribute( 'aria-modal', 'true' );
+
+		const content = el( 'div', 'evm-payment-modal-content' );
+		const title = el( 'h2', 'evm-payment-modal-title', t.successTitle );
+		title.id = 'evm-payment-modal-title';
+		modal.setAttribute( 'aria-labelledby', title.id );
+
+		const txBox = el( 'div', 'evm-payment-modal-txid' );
+		txBox.append( el( 'strong', null, t.transactionId ), el( 'div', null, txHash ) );
+
+		const close = el( 'button', 'evm-payment-modal-button evm-payment-modal-button-close', t.close );
+		close.type = 'button';
+		close.addEventListener( 'click', () => modal.remove() );
+
+		const view = el( 'button', 'evm-payment-modal-button evm-payment-modal-button-view', t.viewOrder );
+		view.type = 'button';
+		view.addEventListener( 'click', () => {
+			window.location.href = redirectUrl;
+		} );
+
+		content.append(
+			el( 'div', 'evm-payment-modal-icon', '✅' ),
+			title,
+			el( 'p', 'evm-payment-modal-message', t.successMessage ),
+			txBox,
+			close,
+			view
+		);
+		modal.appendChild( content );
+		document.body.appendChild( modal );
+		view.focus();
+	}
+
+	button.addEventListener( 'click', pay );
+} )();

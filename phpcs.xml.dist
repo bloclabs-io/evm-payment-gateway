@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<ruleset name="EVM Payment Gateway">
+	<description>Coding standards for the EVM Payment Gateway plugin.</description>
+
+	<file>.</file>
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/tests/*</exclude-pattern>
+	<exclude-pattern>/assets/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg value="sp"/>
+
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.5"/>
+
+	<rule ref="PHPCompatibilityWP">
+		<!-- Flags '0x…' strings; ours are hex strings from JSON-RPC, never used as numbers. -->
+		<exclude name="PHPCompatibility.Miscellaneous.ValidIntegers.HexNumericStringFound"/>
+	</rule>
+
+	<rule ref="WordPress">
+		<!-- PSR-4 class files (includes/Gateway/Payment_Gateway.php) instead of class-*.php. -->
+		<exclude name="WordPress.Files.FileName"/>
+		<!-- Methods are documented where it adds information. -->
+		<exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+		<exclude name="Squiz.Commenting.ClassComment.Missing"/>
+		<exclude name="Generic.Commenting.DocComment.MissingShort"/>
+		<exclude name="Squiz.Commenting.VariableComment.Missing"/>
+		<!-- The plugin's established evp_/EVP prefix is shorter than this sniff accepts;
+		     renaming the public constants, hooks and namespace would break integrations. -->
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals"/>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="evm-payment-gateway"/>
+			</property>
+		</properties>
+	</rule>
+
+</ruleset>
