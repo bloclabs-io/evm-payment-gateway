@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/bloclabs-io/evm-payment-gateway
  * Description: Accept ERC-20 token payments on any EVM-compatible network through WooCommerce, with on-chain payment verification.
  * Version: 1.1.0
- * Author: bloclabs-io
+ * Author: blocLabs.io
  * Author URI: https://github.com/bloclabs-io
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
