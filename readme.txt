@@ -21,6 +21,8 @@ EVM Payment Gateway lets customers pay for WooCommerce orders with an ERC-20 tok
 * Every payment is verified on-chain by the server (receipt status, token contract, sender, recipient, amount, confirmations) before the order is marked as paid.
 * Transactions that are still being confirmed are re-checked in the background with Action Scheduler.
 
+Developed by blocLabs.io.
+
 The order total is charged 1:1 in the configured token. Developers can change the amount with the `evm_payment_token_amount` filter.
 
 = External services =

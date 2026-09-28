@@ -94,3 +94,7 @@ composer install
 composer test    # PHPUnit
 composer phpcs   # WordPress Coding Standards + PHP compatibility
 ```
+
+## Credits
+
+Developed by [blocLabs.io](https://github.com/bloclabs-io).
