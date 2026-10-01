@@ -52,6 +52,18 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 	/** @var bool */
 	public $debug;
 
+	/** @var string */
+	public $token_symbol;
+
+	/** @var string */
+	public $chain_name;
+
+	/** @var string */
+	public $native_symbol;
+
+	/** @var string */
+	public $public_rpc_url;
+
 	public function __construct() {
 		$this->id                 = EVP_GATEWAY_ID;
 		$this->icon               = apply_filters( 'evm_payment_icon', '' );
@@ -73,6 +85,10 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 		$this->confirmations      = max( 1, (int) $this->get_option( 'confirmations', 3 ) );
 		$this->explorer_url       = untrailingslashit( $this->get_option( 'explorer_url' ) );
 		$this->debug              = 'yes' === $this->get_option( 'debug' );
+		$this->token_symbol       = $this->get_option( 'token_symbol' );
+		$this->chain_name         = $this->get_option( 'chain_name' );
+		$this->native_symbol      = $this->get_option( 'native_symbol' );
+		$this->public_rpc_url     = $this->get_option( 'public_rpc_url' );
 
 		// Lets WooCommerce link the transaction ID in the admin order screen.
 		if ( $this->explorer_url ) {
@@ -129,6 +145,13 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 				),
 				'desc_tip'          => true,
 			),
+			'token_symbol'       => array(
+				'title'       => __( 'Token Symbol', 'evm-payment-gateway' ),
+				'type'        => 'text',
+				'description' => __( 'Optional. Shown next to the amount on the pay page, e.g. USDC.', 'evm-payment-gateway' ),
+				'placeholder' => 'USDC',
+				'desc_tip'    => true,
+			),
 			'blockchain_network' => array(
 				'title'             => __( 'Chain ID', 'evm-payment-gateway' ),
 				'type'              => 'number',
@@ -158,6 +181,30 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 				'title'       => __( 'Block Explorer URL', 'evm-payment-gateway' ),
 				'type'        => 'text',
 				'description' => __( 'Optional. Used to link transactions in order notes, e.g. https://etherscan.io', 'evm-payment-gateway' ),
+				'placeholder' => 'https://',
+				'desc_tip'    => true,
+			),
+			'network_section'    => array(
+				'title'       => __( 'Wallet network details', 'evm-payment-gateway' ),
+				'type'        => 'title',
+				'description' => __( 'Optional. When all three fields are set, the pay page can add the network to a wallet that does not know it yet (wallet_addEthereumChain). Customers see these values, so use a public RPC endpoint here, never one with an API key.', 'evm-payment-gateway' ),
+			),
+			'chain_name'         => array(
+				'title'       => __( 'Network Name', 'evm-payment-gateway' ),
+				'type'        => 'text',
+				'description' => __( 'Name the wallet shows for the network, e.g. Polygon Mainnet.', 'evm-payment-gateway' ),
+				'desc_tip'    => true,
+			),
+			'native_symbol'      => array(
+				'title'       => __( 'Native Currency Symbol', 'evm-payment-gateway' ),
+				'type'        => 'text',
+				'description' => __( 'Symbol of the gas token, e.g. ETH, POL or BNB.', 'evm-payment-gateway' ),
+				'desc_tip'    => true,
+			),
+			'public_rpc_url'     => array(
+				'title'       => __( 'Public RPC URL', 'evm-payment-gateway' ),
+				'type'        => 'text',
+				'description' => __( 'Public JSON-RPC endpoint handed to the wallet when it adds the network. This is visible to customers.', 'evm-payment-gateway' ),
 				'placeholder' => 'https://',
 				'desc_tip'    => true,
 			),
@@ -207,6 +254,22 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 		return $this->validate_url( $key, $value, __( 'Block Explorer URL', 'evm-payment-gateway' ) );
 	}
 
+	public function validate_public_rpc_url_field( $key, $value ) {
+		return $this->validate_url( $key, $value, __( 'Public RPC URL', 'evm-payment-gateway' ) );
+	}
+
+	public function validate_token_symbol_field( $key, $value ) {
+		return $this->validate_symbol( $key, $value, __( 'Token Symbol', 'evm-payment-gateway' ) );
+	}
+
+	public function validate_native_symbol_field( $key, $value ) {
+		return $this->validate_symbol( $key, $value, __( 'Native Currency Symbol', 'evm-payment-gateway' ) );
+	}
+
+	public function validate_chain_name_field( $key, $value ) {
+		return trim( sanitize_text_field( (string) $value ) );
+	}
+
 	private function validate_address( $key, $value, $label ) {
 		$value = trim( (string) $value );
 		if ( '' === $value || self::is_address( $value ) ) {
@@ -224,6 +287,16 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 		}
 		/* translators: %s: field label */
 		\WC_Admin_Settings::add_error( sprintf( __( '%s has an invalid value.', 'evm-payment-gateway' ), $label ) );
+		return $this->get_option( $key );
+	}
+
+	private function validate_symbol( $key, $value, $label ) {
+		$value = trim( sanitize_text_field( (string) $value ) );
+		if ( '' === $value || preg_match( '/^[A-Za-z0-9.$-]{1,11}$/', $value ) ) {
+			return $value;
+		}
+		/* translators: %s: field label */
+		\WC_Admin_Settings::add_error( sprintf( __( '%s must be 1 to 11 letters or digits.', 'evm-payment-gateway' ), $label ) );
 		return $this->get_option( $key );
 	}
 
@@ -325,6 +398,7 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 			)
 		);
 
+		$units  = $this->get_order_amount_units( $order );
 		$config = array(
 			'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
 			'nonce'       => wp_create_nonce( 'evp_payment' ),
@@ -333,12 +407,15 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 			'chainId'     => '0x' . dechex( $this->blockchain_network ),
 			'token'       => strtolower( $this->contract_address ),
 			'recipient'   => strtolower( $this->target_address ),
-			'amountHex'   => '0x' . Token_Amount::dec_to_hex( $this->get_order_amount_units( $order ) ),
+			'amountHex'   => '0x' . Token_Amount::dec_to_hex( $units ),
+			'amount'      => $this->format_token_amount( $units ),
+			'network'     => $this->get_wallet_network(),
 			'receivedUrl' => $order->get_checkout_order_received_url(),
 			'i18n'        => array(
 				'noWallet'       => __( 'No browser wallet found. Please install MetaMask or another EVM wallet.', 'evm-payment-gateway' ),
 				'rejected'       => __( 'The request was rejected in your wallet.', 'evm-payment-gateway' ),
 				'addNetwork'     => __( 'Please add the required network to your wallet and try again.', 'evm-payment-gateway' ),
+				'addingNetwork'  => __( 'Please approve adding the network in your wallet.', 'evm-payment-gateway' ),
 				'processing'     => __( 'Processing…', 'evm-payment-gateway' ),
 				'confirmWallet'  => __( 'Please confirm the transaction in your wallet.', 'evm-payment-gateway' ),
 				'waiting'        => __( 'Transaction sent. Waiting for blockchain confirmation…', 'evm-payment-gateway' ),
@@ -384,8 +461,9 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 			<p>
 				<?php
 				printf(
-					/* translators: %s: order total */
-					esc_html__( 'Amount due: %s', 'evm-payment-gateway' ),
+					/* translators: 1: token amount with symbol, 2: order total in store currency */
+					esc_html__( 'Amount due: %1$s (order total %2$s)', 'evm-payment-gateway' ),
+					'<strong>' . esc_html( $this->format_token_amount( $this->get_order_amount_units( $order ) ) ) . '</strong>',
 					wp_kses_post( $order->get_formatted_order_total() )
 				);
 				?>
@@ -407,12 +485,16 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 	 */
 	public function thankyou_page( $order_id ) {
 		$order = wc_get_order( $order_id );
-		if ( ! $order || $order->is_paid() || ! $order->needs_payment() ) {
+		if ( ! $order || $order->is_paid() ) {
 			return;
 		}
 
-		if ( $order->get_transaction_id() ) {
+		if ( $this->is_awaiting_verification( $order ) ) {
 			$this->render_pending_notice( $order );
+			return;
+		}
+
+		if ( ! $order->needs_payment() ) {
 			return;
 		}
 
@@ -429,7 +511,12 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 	 */
 	private function render_pending_notice( $order ) {
 		$tx = $order->get_transaction_id();
-		echo '<p class="woocommerce-info">' . esc_html__( 'Your payment has been sent and is awaiting blockchain confirmation. This page will show the order as paid once it is confirmed.', 'evm-payment-gateway' );
+		if ( $order->has_status( 'on-hold' ) ) {
+			$message = __( 'Your transaction could not be confirmed automatically and is being verified by the store. You will be notified once it is confirmed.', 'evm-payment-gateway' );
+		} else {
+			$message = __( 'Your payment has been sent and is awaiting blockchain confirmation. This page will show the order as paid once it is confirmed.', 'evm-payment-gateway' );
+		}
+		echo '<p class="woocommerce-info">' . esc_html( $message );
 		$url = $this->get_explorer_url( $tx );
 		if ( $url ) {
 			echo ' <a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'View transaction', 'evm-payment-gateway' ) . '</a>';
@@ -537,7 +624,7 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 	 */
 	public function scheduled_check( $order_id ) {
 		$order = wc_get_order( $order_id );
-		if ( ! $order || $this->id !== $order->get_payment_method() || ! $order->needs_payment() || ! $order->get_transaction_id() ) {
+		if ( ! $order || ! $this->is_awaiting_verification( $order ) ) {
 			return;
 		}
 
@@ -548,9 +635,46 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 		$status = $this->check_order_transaction( $order, $attempts < self::MAX_ATTEMPTS );
 
 		if ( Transaction_Verifier::STATUS_PENDING === $status && $attempts >= self::MAX_ATTEMPTS ) {
-			$order->add_order_note( __( 'Transaction could not be confirmed automatically. Please verify it manually before fulfilling this order.', 'evm-payment-gateway' ) );
-			$this->log( sprintf( 'Order %d: giving up after %d attempts.', $order->get_id(), $attempts ), 'warning' );
+			// Park the order where the merchant will see it instead of leaving it pending forever.
+			$order->update_status(
+				'on-hold',
+				__( 'Transaction could not be confirmed automatically within an hour. Check it on the block explorer, then use the "Verify token payment on-chain" order action to re-check it.', 'evm-payment-gateway' )
+			);
+			$this->log( sprintf( 'Order %d: giving up after %d attempts, order put on hold.', $order->get_id(), $attempts ), 'warning' );
 		}
+	}
+
+	/**
+	 * Order action "Verify token payment on-chain": re-checks the transaction now and
+	 * restarts the background re-checks if it is still pending.
+	 *
+	 * @param \WC_Order $order Order.
+	 */
+	public function admin_verify_transaction( $order ) {
+		if ( ! $order instanceof \WC_Order || ! $this->is_awaiting_verification( $order ) ) {
+			return;
+		}
+
+		$order->update_meta_data( self::META_ATTEMPTS, 0 );
+		$order->save();
+
+		$status = $this->check_order_transaction( $order, true );
+
+		if ( Transaction_Verifier::STATUS_PENDING === $status ) {
+			$order->add_order_note( __( 'Manual check: transaction still unconfirmed. Background re-checks have been restarted; see the log for details.', 'evm-payment-gateway' ) );
+		}
+	}
+
+	/**
+	 * Whether the order has a submitted transaction that is not yet confirmed or rejected.
+	 *
+	 * @param \WC_Order $order Order.
+	 * @return bool
+	 */
+	public function is_awaiting_verification( $order ) {
+		return $this->id === $order->get_payment_method()
+			&& $order->get_transaction_id()
+			&& $order->has_status( array( 'pending', 'on-hold', 'failed' ) );
 	}
 
 	/**
@@ -587,6 +711,9 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 					/* translators: 1: transaction hash, 2: reason */
 					sprintf( __( 'Transaction %1$s rejected: %2$s', 'evm-payment-gateway' ), $this->format_transaction( $tx ), esc_html( $result['message'] ) )
 				);
+				if ( $order->has_status( 'on-hold' ) ) {
+					$order->set_status( 'failed', __( 'Rejected after manual verification; the customer can pay again.', 'evm-payment-gateway' ) );
+				}
 				$order->save();
 				$this->log( sprintf( 'Order %d: transaction %s rejected: %s', $order->get_id(), $tx, $result['message'] ), 'warning' );
 				break;
@@ -604,6 +731,10 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 	 * @param int $order_id Order ID.
 	 */
 	private function schedule_check( $order_id ) {
+		if ( ! function_exists( 'as_schedule_single_action' ) ) {
+			$this->log( sprintf( 'Order %d: Action Scheduler unavailable, background re-check not scheduled.', $order_id ), 'error' );
+			return;
+		}
 		$args = array( 'order_id' => $order_id );
 		if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( 'evp_check_transaction', $args, 'evm-payment-gateway' ) ) {
 			return;
@@ -644,6 +775,34 @@ class Payment_Gateway extends \WC_Payment_Gateway {
 	private function get_order_amount_units( $order ) {
 		$amount = apply_filters( 'evm_payment_token_amount', wc_format_decimal( $order->get_total(), wc_get_price_decimals() ), $order );
 		return Token_Amount::to_base_units( wc_format_decimal( $amount ), $this->token_decimals );
+	}
+
+	/**
+	 * Token amount for display, e.g. "12.5 USDC".
+	 *
+	 * @param string $units Amount in base units (decimal integer string).
+	 * @return string
+	 */
+	private function format_token_amount( $units ) {
+		$symbol = '' !== $this->token_symbol ? $this->token_symbol : __( 'tokens', 'evm-payment-gateway' );
+		return Token_Amount::from_base_units( $units, $this->token_decimals ) . ' ' . $symbol;
+	}
+
+	/**
+	 * Network details for wallet_addEthereumChain, or null when not fully configured.
+	 *
+	 * @return array|null
+	 */
+	private function get_wallet_network() {
+		if ( '' === $this->chain_name || '' === $this->native_symbol || '' === $this->public_rpc_url ) {
+			return null;
+		}
+		return array(
+			'chainName'    => $this->chain_name,
+			'nativeSymbol' => $this->native_symbol,
+			'rpcUrl'       => $this->public_rpc_url,
+			'explorerUrl'  => $this->explorer_url ? $this->explorer_url : '',
+		);
 	}
 
 	/**

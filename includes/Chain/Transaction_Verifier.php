@@ -23,6 +23,9 @@ class Transaction_Verifier {
 	/** Allowed clock skew between the shop and the chain when comparing timestamps. */
 	const TIMESTAMP_TOLERANCE = 300;
 
+	/** How long a successful chain ID check for an RPC endpoint is cached (seconds). */
+	const CHAIN_ID_CACHE_TTL = 600;
+
 	/** @var string */
 	private $rpc_url;
 
@@ -67,7 +70,7 @@ class Transaction_Verifier {
 	 */
 	public function verify( $tx_hash, $payer, $min_amount_hex, $not_before ) {
 		try {
-			$chain_id = (int) hexdec( (string) $this->rpc( 'eth_chainId', array() ) );
+			$chain_id = $this->get_rpc_chain_id();
 			if ( $chain_id !== $this->chain_id ) {
 				return $this->result( self::STATUS_PENDING, sprintf( 'RPC endpoint is on chain %d, expected %d.', $chain_id, $this->chain_id ) );
 			}
@@ -77,12 +80,15 @@ class Transaction_Verifier {
 				return $this->result( self::STATUS_PENDING, 'Transaction not mined yet.' );
 			}
 
-			if ( ! isset( $receipt['status'] ) || '0x1' !== strtolower( $receipt['status'] ) ) {
+			// Pre-Byzantium chains omit `status`; a reverted transaction emits no logs,
+			// so the transfer check below still rejects it.
+			if ( isset( $receipt['status'] ) && '0x1' !== strtolower( $receipt['status'] ) ) {
 				return $this->result( self::STATUS_FAILED, 'Transaction reverted.' );
 			}
 
-			if ( ! $this->has_matching_transfer( $receipt, strtolower( $payer ), $min_amount_hex ) ) {
-				return $this->result( self::STATUS_FAILED, 'Transaction does not contain a matching token transfer to the merchant.' );
+			$mismatch = $this->match_transfer( $receipt, strtolower( $payer ), $min_amount_hex );
+			if ( null !== $mismatch ) {
+				return $this->result( self::STATUS_FAILED, $mismatch );
 			}
 
 			$block = $this->rpc( 'eth_getBlockByNumber', array( $receipt['blockNumber'], false ) );
@@ -105,19 +111,42 @@ class Transaction_Verifier {
 	}
 
 	/**
+	 * Returns the chain ID reported by the RPC endpoint.
+	 *
+	 * A matching answer is cached per endpoint for a short time, so the repeated
+	 * checks while a payment confirms don't each spend an RPC call on it.
+	 *
+	 * @return int
+	 * @throws \RuntimeException On RPC errors.
+	 */
+	private function get_rpc_chain_id() {
+		$cache_key = 'evp_rpc_chain_' . md5( $this->rpc_url );
+		$chain_id  = (int) get_transient( $cache_key );
+
+		if ( $chain_id !== $this->chain_id ) {
+			$chain_id = (int) hexdec( (string) $this->rpc( 'eth_chainId', array() ) );
+			if ( $chain_id === $this->chain_id ) {
+				set_transient( $cache_key, $chain_id, self::CHAIN_ID_CACHE_TTL );
+			}
+		}
+
+		return $chain_id;
+	}
+
+	/**
 	 * Looks for a Transfer(payer -> recipient, value >= min) log emitted by the token contract.
 	 *
 	 * @param array  $receipt        Transaction receipt.
 	 * @param string $payer          Lowercase sender address.
 	 * @param string $min_amount_hex Minimum amount (hex).
-	 * @return bool
+	 * @return string|null Null when a matching transfer exists, otherwise why the closest candidate was rejected.
 	 */
-	private function has_matching_transfer( array $receipt, $payer, $min_amount_hex ) {
-		if ( empty( $receipt['logs'] ) || ! is_array( $receipt['logs'] ) ) {
-			return false;
-		}
+	private function match_transfer( array $receipt, $payer, $min_amount_hex ) {
+		$other_sender = '';
+		$underpaid    = false;
 
-		foreach ( $receipt['logs'] as $log ) {
+		$logs = ( ! empty( $receipt['logs'] ) && is_array( $receipt['logs'] ) ) ? $receipt['logs'] : array();
+		foreach ( $logs as $log ) {
 			if ( empty( $log['address'] ) || strtolower( $log['address'] ) !== $this->token ) {
 				continue;
 			}
@@ -125,15 +154,31 @@ class Transaction_Verifier {
 			if ( count( $topics ) !== 3 || self::TRANSFER_TOPIC !== $topics[0] ) {
 				continue;
 			}
-			if ( self::topic_to_address( $topics[1] ) !== $payer || self::topic_to_address( $topics[2] ) !== $this->recipient ) {
+			if ( self::topic_to_address( $topics[2] ) !== $this->recipient ) {
 				continue;
 			}
-			if ( Token_Amount::compare_hex( isset( $log['data'] ) ? $log['data'] : '0x0', $min_amount_hex ) >= 0 ) {
-				return true;
+
+			$from = self::topic_to_address( $topics[1] );
+			if ( $from !== $payer ) {
+				$other_sender = $from;
+				continue;
 			}
+			if ( Token_Amount::compare_hex( isset( $log['data'] ) ? $log['data'] : '0x0', $min_amount_hex ) < 0 ) {
+				$underpaid = true;
+				continue;
+			}
+
+			return null;
 		}
 
-		return false;
+		if ( $underpaid ) {
+			return 'Token transfer to the merchant is smaller than the order amount.';
+		}
+		if ( $other_sender ) {
+			return sprintf( 'Token transfer to the merchant was sent from %s, not from the wallet connected to this order (%s).', $other_sender, $payer );
+		}
+
+		return 'Transaction does not contain a token transfer to the merchant.';
 	}
 
 	/**

@@ -49,6 +49,28 @@ class Token_Amount {
 	}
 
 	/**
+	 * Converts base units back to a decimal amount for display
+	 * (e.g. "12500000000000000000" with 18 decimals to "12.5").
+	 *
+	 * @param string $units    Decimal integer string in base units.
+	 * @param int    $decimals Token decimals.
+	 * @return string
+	 */
+	public static function from_base_units( $units, $decimals ) {
+		$units    = self::strip_zeros( $units );
+		$decimals = max( 0, (int) $decimals );
+		if ( 0 === $decimals ) {
+			return $units;
+		}
+
+		$units    = str_pad( $units, $decimals + 1, '0', STR_PAD_LEFT );
+		$whole    = substr( $units, 0, -$decimals );
+		$fraction = rtrim( substr( $units, -$decimals ), '0' );
+
+		return '' === $fraction ? $whole : $whole . '.' . $fraction;
+	}
+
+	/**
 	 * Converts a decimal integer string to lowercase hex (no 0x prefix).
 	 *
 	 * @param string $dec Decimal integer string.
