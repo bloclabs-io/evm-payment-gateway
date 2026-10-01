@@ -3,7 +3,7 @@
  * Plugin Name: EVM Payment Gateway
  * Plugin URI: https://github.com/bloclabs-io/evm-payment-gateway
  * Description: Accept ERC-20 token payments on any EVM-compatible network through WooCommerce, with on-chain payment verification.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: blocLabs.io
  * Author URI: https://github.com/bloclabs-io
  * License: GPL v2 or later
@@ -14,7 +14,7 @@
  * Requires PHP: 7.4
  * Requires Plugins: woocommerce
  * WC requires at least: 8.3
- * WC tested up to: 9.6
+ * WC tested up to: 11.1
  *
  * @package EVM_Payment_Gateway
  */
@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'EVP_PLUGIN_FILE', __FILE__ );
 define( 'EVP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EVP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'EVP_VERSION', '1.1.0' );
+define( 'EVP_VERSION', '1.2.0' );
 define( 'EVP_GATEWAY_ID', 'evm_payment' );
 
 // Autoloader for the EVP\ namespace (PSR-4, rooted at includes/).
@@ -139,6 +139,32 @@ function evp_bootstrap() {
 			$gateway = evp_get_gateway();
 			if ( $gateway ) {
 				$gateway->scheduled_check( (int) $order_id );
+			}
+		}
+	);
+
+	// Admin order action to re-check a transaction by hand (e.g. after the background checks gave up).
+	add_filter(
+		'woocommerce_order_actions',
+		function ( $actions, $order = null ) {
+			if ( ! $order instanceof WC_Order ) {
+				$order = isset( $GLOBALS['theorder'] ) ? $GLOBALS['theorder'] : null;
+			}
+			$gateway = $order instanceof WC_Order ? evp_get_gateway() : null;
+			if ( $gateway && $gateway->is_awaiting_verification( $order ) ) {
+				$actions['evp_verify_transaction'] = __( 'Verify token payment on-chain', 'evm-payment-gateway' );
+			}
+			return $actions;
+		},
+		10,
+		2
+	);
+	add_action(
+		'woocommerce_order_action_evp_verify_transaction',
+		function ( $order ) {
+			$gateway = evp_get_gateway();
+			if ( $gateway ) {
+				$gateway->admin_verify_transaction( $order );
 			}
 		}
 	);

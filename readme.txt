@@ -2,10 +2,10 @@
 Contributors: bloclabs
 Tags: woocommerce, payment gateway, crypto, ethereum, erc20
 Requires at least: 6.5
-Tested up to: 6.8
+Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,17 @@ Enable "Debug Log" in the gateway settings and open WooCommerce > Status > Logs,
 
 == Changelog ==
 
+= 1.2.0 =
+* New: the pay page shows the amount due in tokens (optional Token Symbol setting) next to the order total.
+* New: optional Network Name, Native Currency Symbol and Public RPC URL settings let the pay page add a missing network to the customer's wallet.
+* New: "Verify token payment on-chain" order action to re-check a transaction by hand.
+* Changed: orders whose transaction cannot be confirmed within an hour are put on hold instead of staying pending indefinitely.
+* Changed: rejection notes now say why (sent from another wallet, amount too low, no transfer found).
+* Changed: receipts without a status field (pre-Byzantium chains) are judged by their transfer logs instead of being treated as reverted.
+* Changed: the RPC chain ID check is cached for ten minutes to cut RPC traffic while a payment confirms.
+* Fixed: background re-checks are skipped with a logged error, instead of a fatal error, if Action Scheduler is unavailable.
+* Tested with WordPress 7.1 and WooCommerce 11.1.
+
 = 1.1.0 =
 * Security: payments are now verified on-chain before orders are marked as paid.
 * Security: AJAX requests require a valid nonce and order key; transactions can't be reused across orders.
@@ -63,6 +74,9 @@ Enable "Debug Log" in the gateway settings and open WooCommerce > Status > Logs,
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+No action required. Optionally set Token Symbol and the wallet network details in the gateway settings.
 
 = 1.1.0 =
 Security release. After updating, enter an RPC URL in the gateway settings; the gateway stays hidden at checkout until it is configured.

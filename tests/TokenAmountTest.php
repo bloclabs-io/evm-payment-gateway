@@ -29,6 +29,29 @@ class TokenAmountTest extends TestCase {
 		);
 	}
 
+	/**
+	 * @dataProvider from_base_unit_cases
+	 */
+	public function test_from_base_units( $units, $decimals, $expected ) {
+		$this->assertSame( $expected, Token_Amount::from_base_units( $units, $decimals ) );
+	}
+
+	public function from_base_unit_cases() {
+		return array(
+			'whole, 18 decimals'    => array( '12000000000000000000', 18, '12' ),
+			'fraction, 18 decimals' => array( '12500000000000000000', 18, '12.5' ),
+			'6 decimals'            => array( '10000', 6, '0.01' ),
+			'0 decimals'            => array( '7', 0, '7' ),
+			'smaller than one unit' => array( '1', 18, '0.000000000000000001' ),
+			'zero'                  => array( '0', 18, '0' ),
+			'leading zeros'         => array( '000150', 2, '1.5' ),
+		);
+	}
+
+	public function test_round_trip() {
+		$this->assertSame( '12.5', Token_Amount::from_base_units( Token_Amount::to_base_units( '12.50', 18 ), 18 ) );
+	}
+
 	public function test_to_base_units_rejects_invalid_input() {
 		$this->expectException( InvalidArgumentException::class );
 		Token_Amount::to_base_units( '1e5', 18 );

@@ -105,18 +105,50 @@
 		return json.data || {};
 	}
 
-	async function ensureChain( provider ) {
+	async function isOnChain( provider ) {
 		const current = await provider.request( { method: 'eth_chainId' } );
-		if ( String( current ).toLowerCase() === cfg.chainId.toLowerCase() ) {
+		return String( current ).toLowerCase() === cfg.chainId.toLowerCase();
+	}
+
+	// EIP-3085/3326: 4902 means the wallet doesn't know the chain. MetaMask Mobile wraps it in -32603.
+	function isUnknownChainError( error ) {
+		if ( ! error ) {
+			return false;
+		}
+		const nested = error.data && ( error.data.originalError || error.data );
+		return error.code === 4902 || ( nested && nested.code === 4902 ) || /4902/.test( String( error.message ) );
+	}
+
+	async function ensureChain( provider ) {
+		if ( await isOnChain( provider ) ) {
 			return;
 		}
 		try {
 			await provider.request( { method: 'wallet_switchEthereumChain', params: [ { chainId: cfg.chainId } ] } );
 		} catch ( error ) {
-			if ( error && error.code === 4902 ) {
+			if ( ! isUnknownChainError( error ) ) {
+				throw error;
+			}
+			if ( ! cfg.network ) {
 				throw new Error( t.addNetwork );
 			}
-			throw error;
+			showNotice( t.addingNetwork );
+			await provider.request( {
+				method: 'wallet_addEthereumChain',
+				params: [
+					{
+						chainId: cfg.chainId,
+						chainName: cfg.network.chainName,
+						rpcUrls: [ cfg.network.rpcUrl ],
+						nativeCurrency: { name: cfg.network.nativeSymbol, symbol: cfg.network.nativeSymbol, decimals: 18 },
+						blockExplorerUrls: cfg.network.explorerUrl ? [ cfg.network.explorerUrl ] : undefined,
+					},
+				],
+			} );
+			// Most wallets switch after adding; if not, ask once more.
+			if ( ! ( await isOnChain( provider ) ) ) {
+				await provider.request( { method: 'wallet_switchEthereumChain', params: [ { chainId: cfg.chainId } ] } );
+			}
 		}
 	}
 
